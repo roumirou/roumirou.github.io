@@ -1074,9 +1074,9 @@ const CONFIG = {
 };
 /* ===================================================================== */
 
-const $ = s => document.querySelector(s);
+const $ = s => document.querySelector(s) || (window.__find ? window.__find(s) : null);
 const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }, clear(){ try { Object.keys(localStorage).filter(k=>k.startsWith("rr_")).forEach(k=>localStorage.removeItem(k)); } catch(e){} } };
-const show = id => { document.querySelectorAll(".screen, main").forEach(el => el.hidden = true); $(id).hidden = false; window.scrollTo(0,0); };
+const show = id => { window.__vault && window.__vault(id); document.querySelectorAll(".screen, main").forEach(el => el.hidden = true); $(id).hidden = false; window.scrollTo(0,0); };
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad2 = n => String(n).padStart(2,"0");
 const gradients = ["135deg,#16295a,#6495ed","160deg,#0f1d44,#f08f7a","120deg,#1d2e5e,#e2b760","150deg,#16295a,#d6e6f7","140deg,#2f4f9a,#f7e08a"];
@@ -1214,7 +1214,7 @@ function setMode(mode){
   if (mode === "test") { unit = 15000; target = new Date(Date.now() + 10*unit - 500); }
   else if (dm) { const n = Math.min(10,Math.max(1,+dm[1])); shift = (bday - (n-1)*DAY - 12*3600000) - Date.now(); }
   else if (mode === "open") skip = true;
-  else if (mode === "site") { skip = true; setTimeout(() => { $("#enter").click(); }, 0); }
+  else if (mode === "site") { skip = true; setTimeout(() => { window.__vault && window.__vault("#letterScreen"); $("#enter").click(); }, 0); }
   else if (mode === "evening") shift = (bday - 3*3600000) - Date.now();
   else if (mode === "reset") { store.clear(); location.hash = ""; location.reload(); }
 }
@@ -1538,6 +1538,7 @@ $("#enter").onclick = () => {
 const start = new Date(CONFIG.startDate);
 function together(){
   const s = Math.max(0,(Date.now()-start)/1000|0), d=s/86400|0, h=s%86400/3600|0, m=s%3600/60|0, sec=s%60;
+  if (!$("#together")) return;
   $("#together").innerHTML = [[d.toLocaleString("en"),"days"],[pad2(h),"hours"],[pad2(m),"minutes"],[pad2(sec),"seconds"]].map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join("");
 }
 together(); setInterval(together,1000);
@@ -1796,7 +1797,7 @@ function reasonBoom(){
       <button type="button" class="btn" id="wishSend">💌 Send a copy to Body Bou to keep safe</button>
       <p class="tiny">It's kept on this phone. A copy with me means it can never get lost.</p>`;
     const tick = () => { let ms = Math.max(0, OPEN - Date.now()); const d = Math.floor(ms/864e5); ms -= d*864e5; const h = Math.floor(ms/36e5); ms -= h*36e5; const m = Math.floor(ms/6e4), s2 = Math.floor((ms - m*6e4)/1000);
-      $("#wishCount").innerHTML = [[d,"days"],[h,"hours"],[m,"min"],[s2,"sec"]].map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join(""); if (Date.now() >= OPEN) render(); };
+      if (!$("#wishCount")) return; $("#wishCount").innerHTML = [[d,"days"],[h,"hours"],[m,"min"],[s2,"sec"]].map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join(""); if (Date.now() >= OPEN) render(); };
     tick(); t = setInterval(tick, 1000);
     $("#wishSend").onclick = async () => { const msg = `🔒 My wish for my 21st (don't read it before 30 October 2027!):\n\n${w.text}`;
       if (navigator.share) { try { await navigator.share({text: msg}); return; } catch(e){ return; } }
@@ -1897,7 +1898,7 @@ const Party = (() => {
   function start(){
     timers.forEach(clearTimeout); timers = []; popped = 0; clearInterval(launchT);
     if (!Music.on) Music.toggle();
-    el.hidden = false; document.body.style.overflow = "hidden"; el.classList.remove("end");
+    window.__vault && window.__vault("#party"); el.hidden = false; document.body.style.overflow = "hidden"; el.classList.remove("end");
     $("#pBunt").innerHTML = Array.from({length:14}, (_, k) => `<i style="--k:${k}"></i>`).join("");
     $("#pHappy").innerHTML = [..."HAPPY BIRTHDAY"].map((ch, k) => `<span style="--k:${k}">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
     $("#pTray").innerHTML = ""; $("#pFinal").hidden = true; $("#pBall").innerHTML = ""; $("#pTip").textContent = "";
@@ -2115,6 +2116,17 @@ const ALBUM_PICS = [["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAk
   const closeBox = () => { inn.querySelectorAll("video").forEach(v => v.pause()); box.hidden = true; inn.innerHTML = ""; };
   box.onclick = e => { if (e.target.tagName !== "VIDEO") closeBox(); };
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !box.hidden) closeBox(); });
+}
+
+/* ---------- keep everything that isn't open yet out of the page, so browser "reader" / "listen"
+   modes can't read the letter or the site before their time. Each part comes back when it opens. ---------- */
+{
+  const parked = {};
+  const park = sel => { const el = document.querySelector(sel); if (!el || !el.hidden) return;
+    const mark = document.createComment("parked " + sel); el.replaceWith(mark); parked[sel] = [el, mark]; };
+  window.__find = s => { for (const k in parked) { const el = parked[k][0]; if (el.matches(s)) return el; const f = el.querySelector(s); if (f) return f; } return null; };
+  window.__vault = sel => { const p = parked[sel]; if (!p) return; p[1].replaceWith(p[0]); delete parked[sel]; };
+  ["#site","#party","#letterScreen","#puzzleScreen","#envScreen"].forEach(park);
 }
 </script>
 
