@@ -1476,10 +1476,12 @@ function startGate(){
   const draw = () => {
     const ms = target - now();
     if (ms <= 0) { clearInterval(gateTimer); if (!$("#puzzleScreen").hidden) return; $("#gateMoon").innerHTML = moonSVG(1,150); confetti(); setTimeout(()=>show("#envScreen"),1200); return; }
-    $("#pzEarly").hidden = !(ms <= 4*3600000*(unit/DAY));
+    // count days by the calendar, not by hours: Egypt's clocks go back an hour on the night of 29 October
+    const calDiff = () => { const n = new Date(now()), b = target; return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()))/DAY); };
+    $("#pzEarly").hidden = unit === DAY ? !(calDiff() === 1 && new Date(now()).getHours() >= 20) : !(ms <= 4*3600000*(unit/DAY));
     const s = ms/1000|0, d=s/86400|0, h=s%86400/3600|0, m=s%3600/60|0, sec=s%60;
     $("#gateClock").innerHTML = [[d,"days"],[h,"hours"],[m,"minutes"],[sec,"seconds"]].map(([v,l])=>`<div><b>${pad2(v)}</b><span>${l}</span></div>`).join("");
-    const idx = total - Math.ceil(ms/unit);
+    const idx = unit === DAY ? total - calDiff() : total - Math.ceil(ms/unit);
     const key = idx + ":" + (idx >= 0 && noteAt(idx) && now() < unlockAt(idx));
     if (idx !== todayIdx || key !== lockKey) {
       lockKey = key;
