@@ -1581,7 +1581,13 @@ function startGate(){
     // count days by the calendar, not by hours: Egypt's clocks go back an hour on the night of 29 October
     const calDiff = () => { const n = new Date(now()), b = target; return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()))/DAY); };
     $("#pzEarly").hidden = unit === DAY ? !(calDiff() === 1 && new Date(now()).getHours() >= 20) : !(ms <= 4*3600000*(unit/DAY));
-    const s = ms/1000|0, d=s/86400|0, h=s%86400/3600|0, m=s%3600/60|0, sec=s%60;
+    // show the countdown in wall-clock time: Egypt's clocks go back an hour on the night of 29/30 October,
+    // so before the 29th we show clock time, and on the 29th the extra hour is spread invisibly over the day
+    let disp = ms;
+    if (unit === DAY) { const wall = t => { const x = new Date(t); return Date.UTC(x.getFullYear(),x.getMonth(),x.getDate(),x.getHours(),x.getMinutes(),x.getSeconds(),x.getMilliseconds()); };
+      const d0 = new Date(+target); d0.setDate(d0.getDate()-1); d0.setHours(0,0,0,0); const nt = now();
+      disp = nt < +d0 ? wall(+target) - wall(nt) : ms * (wall(+target) - wall(+d0)) / (target - d0); }
+    const s = Math.max(0,disp)/1000|0, d=s/86400|0, h=s%86400/3600|0, m=s%3600/60|0, sec=s%60;
     $("#gateClock").innerHTML = [[d,"days"],[h,"hours"],[m,"minutes"],[sec,"seconds"]].map(([v,l])=>`<div><b>${pad2(v)}</b><span>${l}</span></div>`).join("");
     const idx = unit === DAY ? total - calDiff() : total - Math.ceil(ms/unit);
     const key = idx + ":" + (idx >= 0 && noteAt(idx) && now() < unlockAt(idx));
